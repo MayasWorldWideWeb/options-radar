@@ -305,7 +305,11 @@ function ago(iso) {
 function setStatus() {
   const [d, n] = data.progress || [0, 0];
   $("#dot").classList.toggle("busy", !!data.scanning);
-  const last = data.updated ? `Updated ${ago(data.updated)} · ${data.rows.length} stocks` : "Waiting for first scan";
+  const et = new Date(new Date().toLocaleString("en-US", {timeZone: "America/New_York"}));
+  const hm = et.getHours() * 100 + et.getMinutes(), wk = et.getDay() >= 1 && et.getDay() <= 5;
+  const open = wk && hm >= 930 && hm < 1600;
+  const cadence = LOCAL ? "" : open ? " · live, updates every ~1 min" : " · market closed, updates every 30 min until 9:30am ET";
+  const last = data.updated ? `Updated ${ago(data.updated)} · ${data.rows.length} stocks${cadence}` : "Waiting for first scan";
   $("#status").textContent = data.scanning ? `Scanning ${d}/${n}… · ${last}` : last;
 }
 // Local server -> live API. Hosted copy -> the row the GitHub Action writes to Supabase every ~60s.
