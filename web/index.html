@@ -308,19 +308,22 @@ function setStatus() {
   const last = data.updated ? `Updated ${ago(data.updated)} · ${data.rows.length} stocks` : "Waiting for first scan";
   $("#status").textContent = data.scanning ? `Scanning ${d}/${n}… · ${last}` : last;
 }
-// Local server -> live API. Hosted copy -> JSON published by the GitHub Action every few minutes.
+// Local server -> live API. Hosted copy -> the row the GitHub Action writes to Supabase every ~60s.
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname) || location.port === "8790";
-const DATA_URL = LOCAL ? "/api/scan" : "https://raw.githubusercontent.com/MayasWorldWideWeb/options-radar/data/scan.json";
+const DATA_URL = LOCAL ? "/api/scan" : "https://ycsauzlqsjjbusugshpz.supabase.co/rest/v1/radar_scan?select=data&id=eq.1";
+const SB_KEY = "sb_publishable__clF7ZDequRFI1_QtUGRkg_7HAyEXP_";
 async function poll() {
   try {
     const prevUpdated = data.updated;
-    data = await (await fetch(LOCAL ? DATA_URL : DATA_URL + "?t=" + Math.floor(Date.now() / 60000), {cache: "no-store"})).json();
+    data = LOCAL
+      ? await (await fetch(DATA_URL, {cache: "no-store"})).json()
+      : (await (await fetch(DATA_URL, {cache: "no-store", headers: {apikey: SB_KEY}})).json())[0].data;
     if (data.updated !== prevUpdated) render();
   } catch (e) { $("#status").textContent = "Server not reachable"; }
   setStatus();
 }
 poll();
-setInterval(poll, LOCAL ? 5000 : 60000);
+setInterval(poll, LOCAL ? 5000 : 20000);
 setInterval(setStatus, 15000);
 addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(render, 150); });
 </script>
