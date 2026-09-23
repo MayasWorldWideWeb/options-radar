@@ -214,8 +214,9 @@ def push():
 
 if __name__ == "__main__":
     if "--push" in sys.argv:  # used by the GitHub Action
-        # --push [--loop MINUTES]: scan, push, repeat every ~60s until MINUTES are up
-        minutes = float(sys.argv[sys.argv.index("--loop") + 1]) if "--loop" in sys.argv else 0
+        # --push [--chain MINUTES]: scan + push, every ~60s in market hours, every 30 min
+        # otherwise, until MINUTES are up. Without --chain: one scan.
+        minutes = float(sys.argv[sys.argv.index("--chain") + 1]) if "--chain" in sys.argv else 0
         stop, ok = time.time() + minutes * 60, 0
         while True:
             start = time.time()
@@ -226,9 +227,17 @@ if __name__ == "__main__":
                     ok += 1
             except Exception as e:
                 print("scan/push failed:", e)
-            if time.time() + 60 > stop:
+            if not market_open():
+                # sleep 30 min, but wake up in time for the open
+                now = datetime.now(ET)
+                wait = 1800
+                if now.weekday() < 5 and now.hour < 9:
+                    wait = min(wait, max(60, (9 - now.hour) * 3600 - now.minute * 60))
+            else:
+                wait = 60
+            if time.time() + wait > stop:
                 break
-            time.sleep(max(0, 60 - (time.time() - start)))
+            time.sleep(max(0, wait - (time.time() - start)))
         sys.exit(0 if ok else 1)
     port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8790
     threading.Thread(target=loop, daemon=True).start()

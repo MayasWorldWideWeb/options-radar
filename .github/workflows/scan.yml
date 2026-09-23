@@ -1,37 +1,34 @@
 name: scan
+# Runs as a self-restarting chain so it never depends on GitHub's cron (which skipped every
+# scheduled run on day one). Market hours: rescan every ~60s. Off hours: rescan every 30 min.
+# Each run lasts at most ~5.5 h, then starts the next one. Cron is only a backup to restart the chain.
 on:
   schedule:
-    - cron: "*/10 13-20 * * 1-5"  # market hours (UTC): each run rescans every ~60s for 11 min
-    - cron: "0 */3 * * *"         # off hours: one scan every 3 h
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 concurrency: { group: scan, cancel-in-progress: false }
 permissions: { actions: write, contents: read }
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 350
     env:
       RADAR_TOKEN: ${{ secrets.RADAR_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11", cache: pip }
       - run: pip install -r requirements.txt
+      - name: Skip if a chain run is already going
+        id: guard
+        run: |
+          n=$(gh run list -w scan.yml --repo "${{ github.repository }}" -s in_progress --json databaseId -q 'length')
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$n" -gt 1 ]; then echo "skip=1" >> $GITHUB_OUTPUT; fi
       - name: Scan and publish
-        run: |
-          H=$(TZ=America/New_York date +%H%M); D=$(date +%u)
-          if [ "$D" -le 5 ] && [ "$H" -ge 0900 ] && [ "$H" -le 1630 ]; then
-            python -u server.py --push --loop 11
-          else
-            python -u server.py --push
-          fi
-      # GitHub's cron is unreliable (it skipped runs for over an hour on day one), so each
-      # market-hours run starts the next one itself. Cron only has to fire once to start the chain.
-      - name: Chain next run
-        if: always()
-        env: { GH_TOKEN: "${{ github.token }}" }
-        run: |
-          H=$(TZ=America/New_York date +%H%M); D=$(date +%u)
-          if [ "$D" -le 5 ] && [ "$H" -ge 0900 ] && [ "$H" -lt 1620 ]; then
-            gh workflow run scan.yml --repo "${{ github.repository }}"
-          fi
+        if: steps.guard.outputs.skip != '1'
+        timeout-minutes: 335
+        run: python -u server.py --push --chain 330
+      - name: Start next run
+        if: always() && steps.guard.outputs.skip != '1'
+        run: gh workflow run scan.yml --repo "${{ github.repository }}"
