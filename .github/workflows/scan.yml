@@ -5,6 +5,7 @@ on:
     - cron: "0 */3 * * *"         # off hours: one scan every 3 h
   workflow_dispatch:
 concurrency: { group: scan, cancel-in-progress: false }
+permissions: { actions: write, contents: read }
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -23,4 +24,14 @@ jobs:
             python -u server.py --push --loop 11
           else
             python -u server.py --push
+          fi
+      # GitHub's cron is unreliable (it skipped runs for over an hour on day one), so each
+      # market-hours run starts the next one itself. Cron only has to fire once to start the chain.
+      - name: Chain next run
+        if: always()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          H=$(TZ=America/New_York date +%H%M); D=$(date +%u)
+          if [ "$D" -le 5 ] && [ "$H" -ge 0900 ] && [ "$H" -lt 1620 ]; then
+            gh workflow run scan.yml --repo "${{ github.repository }}"
           fi
