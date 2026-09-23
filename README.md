@@ -2,8 +2,8 @@
 
 Scans Yahoo's most-active stocks + biggest gainers/losers for cheap calls and puts.
 
-- Live page: https://webbymaya.com/radar.html (reads `scan.json` from the `data` branch)
-- GitHub Action `scan` refreshes the data every 5 min in market hours.
+- Live page: https://webbymaya.com/radar/index.html (reads the `radar_scan` row in the Web By Maya Supabase project)
+- GitHub Action `scan` rescans every ~60s in market hours (each run loops 11 min), every 3 h otherwise.
 - Local: `.venv/bin/python -u server.py` → http://localhost:8790 (3-min rescans)
 - One-off CLI: `.venv/bin/python scan.py --expiry YYYY-MM-DD NVDA META`
 

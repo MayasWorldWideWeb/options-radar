@@ -198,13 +198,38 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
 
+SUPABASE_URL = "https://ycsauzlqsjjbusugshpz.supabase.co"
+SUPABASE_KEY = "sb_publishable__clF7ZDequRFI1_QtUGRkg_7HAyEXP_"  # public key; writes need RADAR_TOKEN
+
+
+def push():
+    """Write the latest scan to Supabase (radar_scan table) for the hosted page."""
+    import os
+    import urllib.request
+    body = json.dumps({"p_token": os.environ["RADAR_TOKEN"], "p_data": clean(state)}).encode()
+    req = urllib.request.Request(f"{SUPABASE_URL}/rest/v1/rpc/radar_put", data=body, method="POST",
+                                 headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"})
+    urllib.request.urlopen(req, timeout=30).read()
+
+
 if __name__ == "__main__":
-    if "--once" in sys.argv:  # used by the GitHub Action: scan once, write JSON, exit
-        out = Path(sys.argv[sys.argv.index("--once") + 1])
-        run_scan()
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(clean(state)))
-        sys.exit(0 if state["rows"] else 1)
+    if "--push" in sys.argv:  # used by the GitHub Action
+        # --push [--loop MINUTES]: scan, push, repeat every ~60s until MINUTES are up
+        minutes = float(sys.argv[sys.argv.index("--loop") + 1]) if "--loop" in sys.argv else 0
+        stop, ok = time.time() + minutes * 60, 0
+        while True:
+            start = time.time()
+            try:
+                run_scan()
+                if state["rows"]:
+                    push()
+                    ok += 1
+            except Exception as e:
+                print("scan/push failed:", e)
+            if time.time() + 60 > stop:
+                break
+            time.sleep(max(0, 60 - (time.time() - start)))
+        sys.exit(0 if ok else 1)
     port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8790
     threading.Thread(target=loop, daemon=True).start()
     print(f"Dashboard: http://localhost:{port}")
