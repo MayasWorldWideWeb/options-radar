@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #111110; --surface-1: #1a1a19; --surface-2: #232321; --border: #2e2e2b;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8a897f;
+  --seq: #3987e5; --seq-weak: #184f95;
+  --up: #3987e5; --down: #e66767; --mid: #383835;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  --accent: #3987e5;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f3f0; --surface-1: #fcfcfb; --surface-2: #f0efec; --border: #e2e1dc;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+  --seq: #2a78d6; --seq-weak: #86b6ef;
+  --up: #2a78d6; --down: #e34948; --mid: #f0efec;
+  --accent: #2a78d6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-primary); font: 14px/1.45 Inter, system-ui, sans-serif; }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-1); position: sticky; top: 0; z-index: 5; }
+header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+header h1 span { color: var(--accent); }
+.status { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+.dot.busy { background: var(--warning); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.spacer { flex: 1; }
+button.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; }
+main { max-width: 1400px; margin: 0 auto; padding: 16px 20px 60px; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.seg { display: inline-flex; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.seg button { background: none; border: 0; color: var(--text-secondary); padding: 6px 12px; border-radius: 7px; cursor: pointer; font: inherit; font-weight: 500; }
+.seg button.on { background: var(--surface-2); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border); }
+.field { display: inline-flex; align-items: center; gap: 8px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; color: var(--text-secondary); }
+.field input[type=text] { background: none; border: 0; color: var(--text-primary); font: inherit; width: 110px; outline: none; }
+.field input[type=range] { width: 110px; accent-color: var(--accent); }
+.field select { background: none; border: 0; color: var(--text-primary); font: inherit; outline: none; }
+.field select option { background: var(--surface-1); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 16px; min-width: 0; }
+.card h2 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+.card .sub { margin: 0 0 12px; color: var(--text-muted); font-size: 12.5px; }
+svg text { fill: var(--text-secondary); font-size: 12px; }
+svg .val { fill: var(--text-primary); font-family: "JetBrains Mono", monospace; font-size: 11.5px; }
+svg .bar { cursor: pointer; }
+svg .bar:hover { opacity: .8; }
+.tip { position: fixed; pointer-events: none; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-primary); padding: 8px 10px; border-radius: 8px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.3); opacity: 0; transition: opacity .1s; z-index: 20; max-width: 260px; }
+.tip b { font-weight: 600; }
+.tip .m { color: var(--text-secondary); }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 920px; }
+th { text-align: left; font-weight: 500; color: var(--text-muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
+th.num, td.num { text-align: right; }
+th.sorted { color: var(--text-primary); }
+td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: var(--surface-2); }
+.sym { font-weight: 700; }
+.nm { color: var(--text-muted); font-size: 12px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chg-up { color: var(--up); } .chg-down { color: var(--down); }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 7px; border-radius: 999px; background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border); white-space: nowrap; }
+.badge.earn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.pick { font-size: 12.5px; line-height: 1.35; }
+.pick .k { font-weight: 600; color: var(--text-primary); }
+.pick .m { color: var(--text-muted); }
+.none { color: var(--text-muted); font-size: 12px; }
+tr.detail td { background: var(--surface-2); }
+.dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .dgrid { grid-template-columns: 1fr; } }
+.dgrid h3 { margin: 0 0 6px; font-size: 13px; }
+.dgrid table { min-width: 0; }
+.dgrid td, .dgrid th { padding: 5px 8px; font-size: 12.5px; }
+.explain { color: var(--text-muted); font-size: 12.5px; margin: 16px 0 0; }
+.explain b { color: var(--text-secondary); font-weight: 600; }
+.empty { padding: 40px; text-align: center; color: var(--text-muted); }
+@media (max-width: 600px) { header, main { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Options <span>Radar</span></h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="status">Loading…</span></div>
+  <div class="spacer"></div>
+  <button class="ghost" id="theme">Light</button>
+</header>
+<main>
+  <div class="filters">
+    <div class="seg" id="side">
+      <button data-v="both" class="on">Calls + Puts</button>
+      <button data-v="call">Calls (stock goes up)</button>
+      <button data-v="put">Puts (stock goes down)</button>
+    </div>
+    <div class="seg" id="trend">
+      <button data-v="all" class="on">All</button>
+      <button data-v="up">Up today</button>
+      <button data-v="down">Down today</button>
+      <button data-v="earn">Earnings soon</button>
+    </div>
+    <label class="field">Max $/contract <input type="range" id="maxcost" min="5" max="100" step="5" value="60"><span class="mono" id="maxcostv">$60</span></label>
+    <label class="field">Sort
+      <select id="sort">
+        <option value="xem">Best 30x odds</option>
+        <option value="em">Expected move</option>
+        <option value="absChg">Biggest move today</option>
+        <option value="optVol">Options volume</option>
+      </select>
+    </label>
+    <label class="field">🔍 <input type="text" id="q" placeholder="Ticker"></label>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Biggest expected moves</h2>
+      <p class="sub">How much the options market thinks each stock will move by expiry (±%)</p>
+      <div id="chartEm"></div>
+    </div>
+    <div class="card">
+      <h2>Today's biggest movers</h2>
+      <p class="sub">Blue = up today (calls side) · Red = down today (puts side)</p>
+      <div id="chartChg"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Cheap contracts</h2>
+    <p class="sub" id="tsub">Best call and put per stock. Click a row to see all of them.</p>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <p class="explain">
+      <b>Exp move</b> = market's expected ± move by expiry (ATM straddle).
+      <b>30x needs</b> = how far the stock has to move by expiry for that contract to be worth 30× what you paid (10× shown too).
+      <b>Odds score</b> = 30x-needed ÷ expected move; lower is better (1.0 means a normal-sized move pays 30×, 3.0 means it needs a move 3× bigger than expected).
+      Data: Yahoo Finance, ~15 min delayed. Always check the live bid/ask in your broker and use limit orders.
+    </p>
+  </div>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt$ = (n) => n >= 1000 ? n.toLocaleString(undefined, {maximumFractionDigits: 0}) : n.toFixed(2);
+const pct = (n, d = 1) => (n > 0 ? "+" : "") + n.toFixed(d) + "%";
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+let data = {rows: []};
+let ui = {side: "both", trend: "all", maxcost: 60, sort: "xem", q: "", open: null};
+try { Object.assign(ui, JSON.parse(localStorage.getItem("radar-ui") || "{}"), {open: null}); } catch (e) {}
+const save = () => { try { localStorage.setItem("radar-ui", JSON.stringify(ui)); } catch (e) {} };
+
+// theme
+let theme = "dark";
+try { theme = localStorage.getItem("radar-theme") || "dark"; } catch (e) {}
+const applyTheme = () => { document.documentElement.dataset.theme = theme; $("#theme").textContent = theme === "dark" ? "Light" : "Dark"; };
+$("#theme").onclick = () => { theme = theme === "dark" ? "light" : "dark"; try { localStorage.setItem("radar-theme", theme); } catch (e) {} applyTheme(); render(); };
+applyTheme();
+
+// controls
+for (const id of ["side", "trend"]) {
+  const seg = $("#" + id);
+  seg.querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("on", b.dataset.v === ui[id]);
+    b.onclick = () => { ui[id] = b.dataset.v; seg.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); save(); render(); };
+  });
+}
+$("#maxcost").value = ui.maxcost; $("#maxcostv").textContent = "$" + ui.maxcost;
+$("#maxcost").oninput = (e) => { ui.maxcost = +e.target.value; $("#maxcostv").textContent = "$" + ui.maxcost; save(); render(); };
+$("#sort").value = ui.sort; $("#sort").onchange = (e) => { ui.sort = e.target.value; save(); render(); };
+$("#q").oninput = (e) => { ui.q = e.target.value.trim().toUpperCase(); render(); };
+
+// tooltip
+const tip = $("#tip");
+const showTip = (e, html) => { tip.innerHTML = html; tip.style.opacity = 1; moveTip(e); };
+const moveTip = (e) => { const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8); tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px"; };
+const hideTip = () => { tip.style.opacity = 0; };
+
+function picksFor(r) {
+  const cap = ui.maxcost / 100;
+  const c = r.calls.filter((p) => p.ask <= cap), p = r.puts.filter((p) => p.ask <= cap);
+  return {calls: ui.side === "put" ? [] : c, puts: ui.side === "call" ? [] : p};
+}
+function bestScore(r) {
+  const {calls, puts} = picksFor(r);
+  const all = [...calls, ...puts];
+  return all.length ? Math.min(...all.map((p) => p.xem)) : 99;
+}
+
+function filtered() {
+  return data.rows.filter((r) => {
+    if (ui.q && !r.sym.includes(ui.q)) return false;
+    if (ui.trend === "up" && r.chg <= 0) return false;
+    if (ui.trend === "down" && r.chg >= 0) return false;
+    if (ui.trend === "earn" && !r.earnBeforeExp) return false;
+    return true;
+  });
+}
+
+// horizontal bar chart (SVG). diverging=true -> bars from a center zero line
+function barChart(el, items, {diverging = false} = {}) {
+  if (!items.length) { el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+  const W = el.clientWidth || 600, rowH = 22, gap = 2, padL = 58, padR = 62, H = items.length * rowH;
+  const max = Math.max(...items.map((d) => Math.abs(d.v))) || 1;
+  const plotW = W - padL - padR;
+  const zero = diverging ? padL + plotW / 2 : padL;
+  const scale = diverging ? plotW / 2 / max : plotW / max;
+  const bars = items.map((d, i) => {
+    const y = i * rowH + gap, h = rowH - gap * 2, w = Math.max(2, Math.abs(d.v) * scale);
+    const neg = d.v < 0, x = neg ? zero - w : zero;
+    const color = diverging ? (neg ? "var(--down)" : "var(--up)") : "var(--seq)";
+    // 4px rounded data-end, square at baseline
+    const r = Math.min(4, w / 2);
+    const path = neg
+      ? `M${zero},${y} H${x + r} Q${x},${y} ${x},${y + r} V${y + h - r} Q${x},${y + h} ${x + r},${y + h} H${zero} Z`
+      : `M${zero},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} H${zero} Z`;
+    const lx = neg ? x - 6 : x + w + 6, anchor = neg ? "end" : "start";
+    const labX = diverging && !neg ? zero - 8 : diverging ? zero + 8 : padL - 8;
+    const labAnchor = diverging && !neg ? "end" : diverging ? "start" : "end";
+    return `<g class="bar" data-i="${i}">
+      <rect x="0" y="${i * rowH}" width="${W}" height="${rowH}" fill="transparent"/>
+      <path d="${path}" fill="${color}"/>
+      <text x="${diverging ? labX : padL - 8}" y="${y + h / 2 + 4}" text-anchor="${diverging ? labAnchor : "end"}" style="font-weight:600">${esc(d.label)}</text>
+      <text class="val" x="${lx}" y="${y + h / 2 + 4}" text-anchor="${anchor}">${d.text}</text>
+    </g>`;
+  }).join("");
+  const axis = diverging ? `<line x1="${zero}" x2="${zero}" y1="0" y2="${H}" stroke="var(--border)" stroke-width="1"/>` : "";
+  el.innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="bar chart">${axis}${bars}</svg>`;
+  el.querySelectorAll(".bar").forEach((g) => {
+    const d = items[+g.dataset.i];
+    g.onmousemove = (e) => showTip(e, d.tip);
+    g.onmouseleave = hideTip;
+    g.onclick = () => { ui.open = d.label; $("#q").value = ""; ui.q = ""; render(); document.getElementById("r-" + d.label)?.scrollIntoView({block: "center", behavior: "smooth"}); };
+  });
+}
+
+function pickCell(p, side) {
+  if (!p) return `<span class="none">none under $${ui.maxcost}</span>`;
+  return `<div class="pick"><span class="k mono">${side === "call" ? "C" : "P"} $${p.strike}</span> <span class="mono">$${Math.round(p.ask * 100)}</span>
+    <div class="m">30x needs ${side === "call" ? "+" : "−"}${p.need30.toFixed(1)}% · 10x ${side === "call" ? "+" : "−"}${p.need10.toFixed(1)}%</div></div>`;
+}
+
+function detailTable(list, side) {
+  if (!list.length) return `<div class="none">No ${side}s under $${ui.maxcost}/contract that pass the filters.</div>`;
+  return `<table><tr><th>Strike</th><th class="num">Cost</th><th class="num">Bid/Ask</th><th class="num">OI</th><th class="num">2x</th><th class="num">10x</th><th class="num">30x</th><th class="num">Score</th></tr>
+    ${list.map((p) => `<tr><td class="mono">$${p.strike}</td><td class="num mono">$${Math.round(p.ask * 100)}</td><td class="num mono">${p.bid.toFixed(2)}/${p.ask.toFixed(2)}</td><td class="num mono">${p.oi.toLocaleString()}</td>
+      <td class="num mono">${p.need2.toFixed(1)}%</td><td class="num mono">${p.need10.toFixed(1)}%</td><td class="num mono">${p.need30.toFixed(1)}%</td><td class="num mono">${p.xem.toFixed(1)}</td></tr>`).join("")}</table>`;
+}
+
+function render() {
+  const rows = filtered();
+  // charts
+  const em = [...rows].sort((a, b) => b.em - a.em).slice(0, 15).map((r) => ({
+    label: r.sym, v: r.em, text: "±" + r.em.toFixed(1) + "%",
+    tip: `<b>${esc(r.sym)}</b> <span class="m">${esc(r.name)}</span><br>Expected move ±${r.em.toFixed(1)}% by ${r.exp}<br><span class="m">$${fmt$(r.price)} · today ${pct(r.chg)}${r.earnBeforeExp ? " · earnings " + r.earnings : ""}</span>`,
+  }));
+  barChart($("#chartEm"), em);
+  const mv = [...rows].sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 15).map((r) => ({
+    label: r.sym, v: r.chg, text: pct(r.chg),
+    tip: `<b>${esc(r.sym)}</b> <span class="m">${esc(r.name)}</span><br>${r.chg >= 0 ? "▲ Up" : "▼ Down"} ${pct(r.chg)} today · $${fmt$(r.price)}<br><span class="m">${r.chg >= 0 ? "Calls profit if it keeps rising" : "Puts profit if it keeps falling"}</span>`,
+  }));
+  barChart($("#chartChg"), mv, {diverging: true});
+
+  // table
+  const key = {xem: (r) => bestScore(r), em: (r) => -r.em, absChg: (r) => -Math.abs(r.chg), optVol: (r) => -r.optVol}[ui.sort];
+  const sorted = [...rows].sort((a, b) => key(a) - key(b));
+  const showC = ui.side !== "put", showP = ui.side !== "call";
+  let html = `<tr><th>Stock</th><th class="num">Price</th><th class="num">Today</th><th class="num">Exp move</th><th>Expiry</th><th>Earnings</th>
+    ${showC ? "<th>Best call (up)</th>" : ""}${showP ? "<th>Best put (down)</th>" : ""}<th class="num">Odds score</th></tr>`;
+  for (const r of sorted) {
+    const {calls, puts} = picksFor(r);
+    const score = bestScore(r);
+    html += `<tr class="row" id="r-${esc(r.sym)}" data-sym="${esc(r.sym)}">
+      <td><div class="sym">${esc(r.sym)}</div><div class="nm">${esc(r.name)}</div></td>
+      <td class="num mono">$${fmt$(r.price)}</td>
+      <td class="num mono ${r.chg >= 0 ? "chg-up" : "chg-down"}">${r.chg >= 0 ? "▲" : "▼"} ${pct(r.chg)}</td>
+      <td class="num mono">±${r.em.toFixed(1)}%</td>
+      <td class="mono">${r.exp.slice(5)} <span class="nm">(${r.dte}d)</span></td>
+      <td>${r.earnBeforeExp ? `<span class="badge earn">⚡ ${r.earnings.slice(5)}</span>` : r.earnings ? `<span class="nm mono">${r.earnings.slice(5)}</span>` : '<span class="nm">—</span>'}</td>
+      ${showC ? `<td>${pickCell(calls[0], "call")}</td>` : ""}${showP ? `<td>${pickCell(puts[0], "put")}</td>` : ""}
+      <td class="num mono">${score < 99 ? score.toFixed(1) : "—"}</td></tr>`;
+    if (ui.open === r.sym) {
+      const cols = 7 + (showC ? 1 : 0) + (showP ? 1 : 0);
+      html += `<tr class="detail"><td colspan="${cols}"><div class="dgrid">
+        ${showC ? `<div><h3>Calls — profit if ${esc(r.sym)} goes UP</h3>${detailTable(calls, "call")}</div>` : ""}
+        ${showP ? `<div><h3>Puts — profit if ${esc(r.sym)} goes DOWN</h3>${detailTable(puts, "put")}</div>` : ""}
+      </div></td></tr>`;
+    }
+  }
+  $("#tbl").innerHTML = rows.length ? html : `<tr><td class="empty">${data.scanning ? "First scan running…" : "Nothing matches these filters."}</td></tr>`;
+  $("#tsub").textContent = `${rows.length} stocks · best call and put per stock under $${ui.maxcost}/contract. Click a row to see all of them.`;
+  $("#tbl").querySelectorAll("tr.row").forEach((tr) => tr.onclick = () => { ui.open = ui.open === tr.dataset.sym ? null : tr.dataset.sym; render(); });
+}
+
+function ago(iso) {
+  const s = Math.round((Date.now() - new Date(iso)) / 1000);
+  return s < 60 ? `${s}s ago` : `${Math.round(s / 60)} min ago`;
+}
+function setStatus() {
+  const [d, n] = data.progress || [0, 0];
+  $("#dot").classList.toggle("busy", !!data.scanning);
+  const last = data.updated ? `Updated ${ago(data.updated)} · ${data.rows.length} stocks` : "Waiting for first scan";
+  $("#status").textContent = data.scanning ? `Scanning ${d}/${n}… · ${last}` : last;
+}
+// Local server -> live API. Hosted copy -> JSON published by the GitHub Action every few minutes.
+const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname) || location.port === "8790";
+const DATA_URL = LOCAL ? "/api/scan" : "https://raw.githubusercontent.com/MayasWorldWideWeb/options-radar/data/scan.json";
+async function poll() {
+  try {
+    const prevUpdated = data.updated;
+    data = await (await fetch(LOCAL ? DATA_URL : DATA_URL + "?t=" + Math.floor(Date.now() / 60000), {cache: "no-store"})).json();
+    if (data.updated !== prevUpdated) render();
+  } catch (e) { $("#status").textContent = "Server not reachable"; }
+  setStatus();
+}
+poll();
+setInterval(poll, LOCAL ? 5000 : 60000);
+setInterval(setStatus, 15000);
+addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(render, 150); });
+</script>
+</body>
+</html>
